@@ -16,7 +16,7 @@ inputs:
     default: "test.relation.network"
   AWS_TARGET:
     required: false
-    default: "test" /
+    default: "test"
   PROJECT:
     required: false
     default: relation_website
