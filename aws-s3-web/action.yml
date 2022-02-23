@@ -1,4 +1,4 @@
-name: Deploy To AWS
+name: Deploy To AWS and S3
 author: savaris
 branding:
   color: green
