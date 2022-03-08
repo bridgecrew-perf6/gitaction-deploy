@@ -1,0 +1,80 @@
+name: Deploy To AWS
+author: savaris
+branding:
+  color: green
+  icon: airplay
+inputs:
+  AWS_ACCESS_KEY_ID:
+    required: true
+  AWS_SECRET_ACCESS_KEY:
+    required: true
+  AWS_REGION:
+    required: false
+    default: "ap-southeast-1"
+  AWS_BUCKET_NAME:
+    required: false
+    default: "test.relation.network"
+  AWS_TARGET:
+    required: false
+    default: "test"
+  PROJECT:
+    required: false
+    default: relation_website
+  SOURCE:
+    required: false
+    default: "./dist"
+  WORKSPACE:
+    required: false
+    default: /home/yin
+  DEPLOY_KEY:
+    required: true
+  SSH_SERVER:
+    required: true
+  SSH_ROOT:
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    # checkout codes
+    - uses: actions/checkout@v2
+
+    # prepare nodejs
+    - uses: actions/setup-node@v2
+      with:
+        node-version: "14.x"
+        cache: "yarn"
+
+    # install and build
+    - name: Install Node Modules
+      run: rm -rf node_modules && yarn install --frozen-lockfile
+      shell: bash
+    - name: Build dist
+      run: yarn build
+      shell: bash
+
+    # deploy assets to aws
+    - uses: AEnterprise/rsync-deploy@v1.0
+      env:
+        DEPLOY_KEY: ${{ inputs.DEPLOY_KEY }} # ssh key
+        ARGS: -avz --delete --exclude='*.pyc'
+        SERVER_PORT: "22"
+        FOLDER: ${{ inputs.SOURCE }}.zip
+        SERVER_IP: ${{ inputs.SSH_SERVER }}
+        USERNAME: ${{ inputs.SSH_ROOT }}
+        SERVER_DESTINATION: ${{ inputs.WORKSPACE }}/${{ inputs.PROJECT }}.zip
+
+    # login to the server and restart nginx
+    - uses: appleboy/ssh-action@master
+      with:
+        host: ${{ inputs.SSH_SERVER }}
+        username: ${{ inputs.SSH_ROOT }}
+        key: ${{ inputs.DEPLOY_KEY }}
+        script: |
+          cd ${{ inputs.WORKSPACE }}
+          TIME=$(date "+%Y%m%d")
+          SERVER=${{ inputs.PROJECT }}
+          mv ${SERVER}.zip ${SERVER}_${TIME}.zip
+          unzip -o ${SERVER}_${TIME}.zip -d ${SERVER}
+          cd ${{ inputs.WORKSPACE }}/${SERVER}
+          sudo systemctl restart nginx
